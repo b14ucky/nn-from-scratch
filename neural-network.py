@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import DataLoader
+from utils import DataLoader, EpochAction, LearningRateAction
+import argparse
 
 
 class NeuralNetwork:
@@ -56,7 +57,7 @@ class NeuralNetwork:
             num_correct = 0
 
             print(f"Learning rate: {learning_rate}")
-            if epoch % lr_decay_epoch == 0:
+            if epoch % lr_decay_epoch == 0 and epoch != 0:
                 learning_rate *= learning_rate_decay
 
     def predict(self, image):
@@ -73,15 +74,74 @@ class NeuralNetwork:
         return np.argmax(output)
 
 
-if __name__ == "__main__":
+def get_arguments():
+    parser = argparse.ArgumentParser(description="Train a neural network")
+    parser.add_argument(
+        "-e",
+        "--epochs",
+        action=EpochAction,
+        type=int,
+        default=3,
+        help="Number of epochs to train the neural network",
+    )
+    parser.add_argument(
+        "-l",
+        "--learning-rate",
+        action=LearningRateAction,
+        type=float,
+        default=0.01,
+        help="Learning rate for the neural network",
+    )
+    parser.add_argument(
+        "-ld",
+        "--learning-rate-decay",
+        action=LearningRateAction,
+        type=float,
+        default=1,
+        help="Learning rate decay for the neural network",
+    )
+    parser.add_argument(
+        "-le",
+        "--lr-decay-epoch",
+        action=EpochAction,
+        type=int,
+        default=1,
+        help="Epochs before the learning rate decays",
+    )
+    parser.add_argument(
+        "-c",
+        "--custom-dataset",
+        action="store_true",
+        help="Use a custom dataset instead of the MNIST dataset",
+    )
+
+    args = parser.parse_args()
+    return (
+        args.epochs,
+        args.learning_rate,
+        args.learning_rate_decay,
+        args.lr_decay_epoch,
+        args.custom_dataset,
+    )
+
+
+def main():
+    epochs, learning_rate, learning_rate_decay, lr_decay_epoch, custom_dataset = get_arguments()
     nn = NeuralNetwork(784, 20, 10)
-    images, labels = DataLoader().load_custom_data()
-    nn.train(0.01, 3, images, labels)
+    if custom_dataset:
+        images, labels = DataLoader().load_custom_data()
+    else:
+        images, labels = DataLoader().load_mnist_data()
+    nn.train(learning_rate, epochs, images, labels, learning_rate_decay, lr_decay_epoch)
     while True:
-        index = int(input(f"Enter an index[0 - {len(images) - 1}]: "))
+        index = int(input(f"Enter an index[0 - {len(images) - 1}](-1 to exit): "))
         if index == -1:
             break
         image = images[index]
         plt.imshow(image.reshape(28, 28), cmap="gray")
         plt.title(f"Prediction: {nn.predict(image)}")
         plt.show()
+
+
+if __name__ == "__main__":
+    main()

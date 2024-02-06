@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import argparse
 
 
 class DataLoader:
@@ -22,3 +23,17 @@ class DataLoader:
         labels = np.eye(10)[labels]
 
         return images, labels
+
+
+class EpochAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        if values < 1:
+            raise argparse.ArgumentError(self, "Epochs must be greater than 0")
+        setattr(namespace, self.dest, values)
+
+
+class LearningRateAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        if values <= 0 or values >= 1:
+            raise argparse.ArgumentError(self, "Learning rate must be between 0 and 1")
+        setattr(namespace, self.dest, values)
