@@ -1,4 +1,4 @@
-# Neural Network Training
+# Neural Network From Scratch
 
 This Python script implements a simple neural network for image classification. The neural network is designed with an input layer of 784 nodes (assuming 28x28 pixel images), a hidden layer with 20 nodes, and an output layer with 10 nodes (for classification). The training is performed using backpropagation with stochastic gradient descent.
 
