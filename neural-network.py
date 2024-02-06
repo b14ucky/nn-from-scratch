@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from data import load_mnist_data, load_my_data
+from data import load_mnist_data, load_custom_data
 
 
 class NeuralNetwork:
@@ -75,7 +75,7 @@ class NeuralNetwork:
 
 if __name__ == "__main__":
     nn = NeuralNetwork(784, 20, 10)
-    images, labels = load_mnist_data()
+    images, labels = load_custom_data()
     nn.train(0.01, 3, images, labels)
     while True:
         index = int(input(f"Enter an index[0 - {len(images) - 1}]: "))

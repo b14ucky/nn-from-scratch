@@ -13,8 +13,8 @@ def load_mnist_data():
     return images, labels
 
 
-def load_my_data():
-    data = pd.read_csv("./dataset/numbers.csv", sep=";")
+def load_custom_data():
+    data = pd.read_csv("./dataset/numbers.csv", sep=";").sample(frac=1).reset_index(drop=True)
     images, labels = data["Pixels"], data["Labels"]
     images = np.array([np.array(image.split(" "), dtype=np.float32) for image in images]) / 255
     labels = np.eye(10)[labels]
