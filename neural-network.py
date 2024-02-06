@@ -59,28 +59,29 @@ class NeuralNetwork:
             if epoch % lr_decay_epoch == 0:
                 learning_rate *= learning_rate_decay
 
+    def predict(self, image):
+        image.shape += (1,)
 
-# while True:
-#     index = int(input("Enter an index[0 - 59999]: "))
-#     if index == -1:
-#         break
-#     image = images[index]
-#     plt.imshow(image.reshape(28, 28), cmap="gray")
+        # Forward propagation (input to hidden)
+        hidden_pre = self.b_input_hidden + self.w_input_hidden @ image
+        hidden = self._sigmoid(hidden_pre)
 
-#     image.shape += (1,)
+        # Forward propagation (hidden to output)
+        output_pre = self.b_hidden_output + self.w_hidden_output @ hidden
+        output = self._sigmoid(output_pre)
 
-#     # Forward propagation (input to hidden)
-#     hidden_pre = b_input_hidden + w_input_hidden @ image.reshape(784, 1)
-#     hidden = 1 / (1 + np.exp(-hidden_pre))
-#     # Forward propagation (hidden to output)
-#     output_pre = b_hidden_output + w_hidden_output @ hidden
-#     output = 1 / (1 + np.exp(-output_pre))
-
-#     plt.title(f"Prediction: {np.argmax(output)}")
-#     plt.show()
+        return np.argmax(output)
 
 
 if __name__ == "__main__":
     nn = NeuralNetwork(784, 20, 10)
     images, labels = load_mnist_data()
     nn.train(0.01, 3, images, labels)
+    while True:
+        index = int(input(f"Enter an index[0 - {len(images) - 1}]: "))
+        if index == -1:
+            break
+        image = images[index]
+        plt.imshow(image.reshape(28, 28), cmap="gray")
+        plt.title(f"Prediction: {nn.predict(image)}")
+        plt.show()
