@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import DataLoader, EpochAction, LearningRateAction
+from utils import DataLoader, EpochAction, LearningRateAction, DrawingApp
 import argparse
 
 
@@ -114,6 +114,12 @@ def get_arguments():
         action="store_true",
         help="Use a custom dataset instead of the MNIST dataset",
     )
+    parser.add_argument(
+        "-d",
+        "--draw",
+        action="store_true",
+        help="Draw a number to predict",
+    )
 
     args = parser.parse_args()
     return (
@@ -122,25 +128,38 @@ def get_arguments():
         args.learning_rate_decay,
         args.lr_decay_epoch,
         args.custom_dataset,
+        args.draw,
     )
 
 
 def main():
-    epochs, learning_rate, learning_rate_decay, lr_decay_epoch, custom_dataset = get_arguments()
+    epochs, learning_rate, learning_rate_decay, lr_decay_epoch, custom_dataset, draw = (
+        get_arguments()
+    )
     nn = NeuralNetwork(784, 20, 10)
     if custom_dataset:
         images, labels = DataLoader().load_custom_data()
     else:
         images, labels = DataLoader().load_mnist_data()
     nn.train(learning_rate, epochs, images, labels, learning_rate_decay, lr_decay_epoch)
-    while True:
-        index = int(input(f"Enter an index[0 - {len(images) - 1}](-1 to exit): "))
-        if index == -1:
-            break
-        image = images[index]
-        plt.imshow(image.reshape(28, 28), cmap="gray")
-        plt.title(f"Prediction: {nn.predict(image)}")
-        plt.show()
+    if draw and not custom_dataset:
+        drawing_app = DrawingApp()
+        print("Press 'R' to clear the window, 'ENTER' to continue and 'ESC' to exit")
+        while drawing_app.running:
+            image = drawing_app.get_image()
+            if image is not None:
+                plt.imshow(image.reshape(28, 28), cmap="gray")
+                plt.title(f"Prediction: {nn.predict(image)}")
+                plt.show()
+    else:
+        while True:
+            index = int(input(f"Enter an index[0 - {len(images) - 1}](-1 to exit): "))
+            if index == -1:
+                break
+            image = images[index]
+            plt.imshow(image.reshape(28, 28), cmap="gray")
+            plt.title(f"Prediction: {nn.predict(image)}")
+            plt.show()
 
 
 if __name__ == "__main__":
