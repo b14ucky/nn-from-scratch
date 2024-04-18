@@ -63,3 +63,6 @@ If the `-d` or `--draw` option is specified and a custom dataset is not used, th
 The script supports training on either the default MNIST dataset or a custom dataset (specified using the `-c` flag). This custom dataset was created and used to train my number recognition model, which is employed in the [sudokuAI project](https://github.com/b14ucky/sudokuAI).
 
 Feel free to explore and modify the script for your specific use case or dataset.
+
+## References
+https://www.youtube.com/watch?v=9RN2Wr8xvro&list=WL&index=257&t=949s
