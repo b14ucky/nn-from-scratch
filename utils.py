@@ -14,7 +14,12 @@ class DataLoader:
         images = images.reshape(images.shape[0], (images.shape[1] * images.shape[2]))
         labels = np.eye(10)[labels]
 
-        return images, labels
+        # split the data into training and test sets
+        split = int(0.8 * images.shape[0])
+        train_images, test_images = images[:split], images[split:]
+        train_labels, test_labels = labels[:split], labels[split:]
+
+        return train_images, train_labels, test_images, test_labels
 
     @staticmethod
     def load_custom_data():
@@ -23,7 +28,12 @@ class DataLoader:
         images = np.array([np.array(image.split(" "), dtype=np.float32) for image in images]) / 255
         labels = np.eye(10)[labels]
 
-        return images, labels
+        # split the data into training and test sets
+        split = int(0.8 * images.shape[0])
+        train_images, test_images = images[:split], images[split:]
+        train_labels, test_labels = labels[:split], labels[split:]
+
+        return train_images, train_labels, test_images, test_labels
 
 
 class EpochAction(argparse.Action):
