@@ -5,18 +5,18 @@ import argparse
 
 
 class Layer:
-    def __init__(self, input_size: int, output_size: int, activation: str = "sigmoid") -> None:
+    def __init__(self, input_size: int, output_size: int, activation: str = "sigmoid"):
         """
         Args:
             input_size (int): The number of input nodes
             output_size (int): The number of output nodes
             activation (str, optional): The activation function to use. Defaults to "sigmoid".
         """
-        # initialize the weights with he-initialization
-        self.weights: np.ndarray = np.random.uniform(
-            0, np.sqrt(2 / input_size), (output_size, input_size)
+        # initialize the weights using he-initialization
+        self.weights: np.ndarray = np.random.randn(input_size, output_size) * np.sqrt(
+            2 / input_size
         )
-        self.bias: np.ndarray = np.zeros((output_size, 1))
+        self.biases: np.ndarray = np.zeros((1, output_size))
         self.activation: str = activation
 
     def __call__(self, input: np.ndarray) -> np.ndarray:
@@ -38,11 +38,21 @@ class Layer:
             np.ndarray: The output of the layer
         """
         self.input: np.ndarray = input
-        self.output: np.ndarray = self.weights @ self.input + self.bias
+
+        pre_activation_output: np.ndarray = self.input @ self.weights + self.biases
+
+        # Apply activation functions
         if self.activation == "sigmoid":
-            return self._sigmoid(self.output)
+            self.output: np.ndarray = self._sigmoid(pre_activation_output)
         elif self.activation == "relu":
-            return self._relu(self.output)
+            self.output: np.ndarray = self._relu(pre_activation_output)
+        elif self.activation == "softmax":
+            self.output: np.ndarray = self._softmax(pre_activation_output)
+
+        else:
+            print(f"The activation function entered does not exist!\nUse either relu or softmax")
+
+        return self.output
 
     def backward(self, gradient: np.ndarray, learning_rate: float) -> np.ndarray:
         """
@@ -58,17 +68,22 @@ class Layer:
             delta: np.ndarray = gradient * self._dsigmoid(self.output)
         elif self.activation == "relu":
             delta: np.ndarray = gradient * self._drelu(self.output)
+        elif self.activation == "softmax":
+            delta: np.ndarray = self._dsoftmax(self.output, gradient)
 
         # calculate the gradients with respect to the weights and bias
-        self.weights_gradient: np.ndarray = delta @ np.transpose(self.input)
-        self.bias_gradient: np.ndarray = delta
+        weights_gradient: np.ndarray = self.input.T @ delta
+        biases_gradient: np.ndarray = np.sum(delta, axis=0, keepdims=True)
+
+        # clip the gradients to prevent exploding gradients
+        weights_gradient = np.clip(weights_gradient, -1.0, 1.0)
+        biases_gradient = np.clip(biases_gradient, -1.0, 1.0)
 
         # update the weights and bias
-        self.weights -= learning_rate * self.weights_gradient
-        self.bias -= learning_rate * self.bias_gradient
+        self.weights -= learning_rate * weights_gradient
+        self.biases -= learning_rate * biases_gradient
 
-        # calculate and return the delta l-1
-        return np.transpose(self.weights) @ delta
+        return delta @ self.weights.T
 
     def _sigmoid(self, x: np.ndarray) -> np.ndarray:
         """
@@ -110,6 +125,34 @@ class Layer:
         """
         return x > 0
 
+    def _softmax(self, x: np.ndarray) -> np.ndarray:
+        """
+        The softmax activation function
+        Args:
+            x (np.ndarray): The input to the activation function
+        Returns:
+            np.ndarray: The output of the activation function
+        """
+        exponential_values: np.ndarray = np.exp(x - np.max(x, axis=-1, keepdims=True))
+        return exponential_values / np.sum(exponential_values, axis=-1, keepdims=True)
+
+    def _dsoftmax(self, x: np.ndarray, gradient: np.ndarray) -> np.ndarray:
+        """
+        The derivative of the softmax activation function
+        Args:
+            x (np.ndarray): The input to the activation function
+            gradient (np.ndarray): The gradient of the loss with respect to the output of the layer
+        Returns:
+            np.ndarray: The output of the derivative of the activation function
+        """
+        for i, d_value in enumerate(gradient):
+            if len(d_value.shape) == 1:
+                d_value = d_value.reshape(-1, 1)
+            jacobian_matrix = np.diagflat(d_value) - (d_value @ d_value.T)
+            gradient[i] = jacobian_matrix @ self.output[i]
+
+        return gradient
+
 
 class NeuralNetwork:
     def __init__(self, input_nodes: int, hidden_nodes: int, output_nodes: int) -> None:
@@ -119,8 +162,8 @@ class NeuralNetwork:
             hidden_nodes (int): The number of hidden nodes
             output_nodes (int): The number of output nodes
         """
-        self.input_hidden = Layer(input_nodes, hidden_nodes, "sigmoid")
-        self.hidden_output = Layer(hidden_nodes, output_nodes, "sigmoid")
+        self.input_hidden = Layer(input_nodes, hidden_nodes, "relu")
+        self.hidden_output = Layer(hidden_nodes, output_nodes, "softmax")
 
     def __call__(self, input: np.ndarray) -> np.ndarray:
         """
@@ -140,9 +183,9 @@ class NeuralNetwork:
         Returns:
             np.ndarray: The output of the neural network
         """
-        self.input = input
         hidden = self.input_hidden(input)
         output = self.hidden_output(hidden)
+
         return output
 
     def train(
@@ -166,29 +209,30 @@ class NeuralNetwork:
             learning_rate_decay (float, optional): The learning rate decay factor. Defaults to 1.
             lr_decay_epoch (int, optional): The number of epochs before the learning rate decays. Defaults to 1.
         """
-        num_correct = 0
         for epoch in range(epochs):
-            for image, label in zip(train_images, train_labels):
-                image.shape += (1,)
-                label.shape += (1,)
+            output: np.ndarray = self._forward(train_images)
 
-                # Forward propagation
-                output = self._forward(image)
+            # calculate the loss using the cross-entropy loss function
+            epsilon = 1e-10
+            error: float = -np.mean(train_labels * np.log(output + epsilon))
 
-                # Calculate error
-                error = 1 / len(output) * np.sum((output - label) ** 2, axis=0)
-                num_correct += int(np.argmax(output) == np.argmax(label))
+            # calculate the accuracy
+            predicted_labels: np.ndarray = np.argmax(output, axis=1)
+            true_labels: np.ndarray = np.argmax(train_labels, axis=1)
+            accuracy: float = np.mean(predicted_labels == true_labels)
 
-                # Backpropagation
-                delta_output = output - label
-                delta_hidden = self.hidden_output.backward(delta_output, learning_rate)
-                self.input_hidden.backward(delta_hidden, learning_rate)
+            # calculate the gradient of the loss with respect to the output
+            delta_output = (output - train_labels) / output.shape[0]
+
+            # backpropagate the gradient
+            delta_hidden = self.hidden_output.backward(delta_output, learning_rate)
+            delta_input = self.input_hidden.backward(delta_hidden, learning_rate)
 
             print(
-                f"Epoch {epoch + 1} - Train accuracy: {num_correct / len(train_images) * 100:.2f}%, Loss: {error[0]}"
+                f"Epoch {epoch + 1} - Train accuracy: {accuracy * 100:.2f}% - Loss: {error:.4f}",
+                end=" - ",
             )
             print(f"Test accuracy: {self.accuracy(test_images, test_labels) * 100:.2f}%")
-            num_correct = 0
 
             print(f"Learning rate: {learning_rate}")
             if epoch % lr_decay_epoch == 0 and epoch != 0:
@@ -203,13 +247,11 @@ class NeuralNetwork:
         Returns:
             float: The accuracy of the neural network
         """
-        num_correct = 0
-        for image, label in zip(images, labels):
-            image.shape += (1,)
-            label.shape += (1,)
-            output = self._forward(image)
-            num_correct += int(np.argmax(output) == np.argmax(label))
-        return num_correct / len(images)
+        output: np.ndarray = self._forward(images)
+        predicted_labels: np.ndarray = np.argmax(output, axis=1)
+        true_labels: np.ndarray = np.argmax(labels, axis=1)
+        accuracy: float = np.mean(predicted_labels == true_labels)
+        return accuracy
 
     def predict(self, image: np.ndarray) -> int:
         """
@@ -219,8 +261,7 @@ class NeuralNetwork:
         Returns:
             int: The predicted label
         """
-        image.shape += (1,)
-        output = self._forward(image)
+        output: np.ndarray = self._forward(image)
         return np.argmax(output)
 
 
