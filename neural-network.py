@@ -251,7 +251,7 @@ class NeuralNetwork:
 
             # plot the loss and accuracy
             if plot_stats:
-                plot(loss_plot, train_accuracy_plot, test_accuracy_plot)
+                plot(loss_plot, test_accuracy_plot, train_accuracy_plot)
 
             if epoch % lr_decay_epoch == 0 and epoch != 0:
                 learning_rate *= learning_rate_decay
@@ -394,6 +394,7 @@ def main():
         while drawing_app.running:
             image = drawing_app.get_image()
             if image is not None:
+                plt.clf()
                 plt.imshow(image.reshape(28, 28), cmap="gray")
                 plt.title(f"Prediction: {nn.predict(image)}")
                 plt.show()
@@ -403,6 +404,7 @@ def main():
             if index == -1:
                 break
             image = test_images[index]
+            plt.clf()
             plt.imshow(image.reshape(28, 28), cmap="gray")
             plt.title(f"Prediction: {nn.predict(image)}")
             plt.show()
