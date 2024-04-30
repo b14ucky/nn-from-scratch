@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import argparse
 import cv2
+import matplotlib.pyplot as plt
+from IPython import display
 
 
 class DataLoader:
@@ -98,3 +100,27 @@ class DrawingApp:
 
         self._reset()
         return image
+
+
+def plot(loss, test_accuracy, train_accuracy):
+    display.clear_output(wait=True)
+    display.display(plt.gcf())
+    plt.clf()
+
+    plt.subplot(1, 2, 1)
+    plt.plot(loss, label="Loss")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.title("Loss over epochs")
+    plt.legend()
+
+    plt.subplot(1, 2, 2)
+    plt.plot(test_accuracy, label="Test Accuracy")
+    plt.plot(train_accuracy, label="Train Accuracy")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.title("Accuracy over epochs")
+    plt.legend()
+
+    plt.show(block=False)
+    plt.pause(0.1)

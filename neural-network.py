@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.typing import NDArray
 import matplotlib.pyplot as plt
-from utils import DataLoader, NonpositiveIntAction, LearningRateAction, DrawingApp
+from utils import DataLoader, NonpositiveIntAction, LearningRateAction, DrawingApp, plot
 import argparse
 
 
@@ -196,6 +196,7 @@ class NeuralNetwork:
         train_labels: NDArray,
         test_images: NDArray,
         test_labels: NDArray,
+        plot_stats: bool = False,
         learning_rate_decay: float = 1,
         lr_decay_epoch: int = 1,
     ) -> None:
@@ -210,21 +211,15 @@ class NeuralNetwork:
             learning_rate_decay (float, optional): The learning rate decay factor. Defaults to 1.
             lr_decay_epoch (int, optional): The number of epochs before the learning rate decays. Defaults to 1.
         """
+        loss_plot = []
+        train_accuracy_plot = []
+        test_accuracy_plot = []
         for epoch in range(epochs):
             for i in range(0, len(train_images), batch_size):
                 batch_images = train_images[i : i + batch_size]
                 batch_labels = train_labels[i : i + batch_size]
 
                 output: NDArray = self._forward(batch_images)
-
-                # calculate the loss using the cross-entropy loss function
-                epsilon = 1e-10
-                error: float = -np.mean(batch_labels * np.log(output + epsilon))
-
-                # calculate the accuracy
-                predicted_labels: NDArray = np.argmax(output, axis=1)
-                true_labels: NDArray = np.argmax(batch_labels, axis=1)
-                accuracy: float = np.mean(predicted_labels == true_labels)
 
                 # calculate the gradient of the loss with respect to the output
                 delta_output = (output - batch_labels) / output.shape[0]
@@ -233,13 +228,31 @@ class NeuralNetwork:
                 delta_hidden = self.hidden_output.backward(delta_output, learning_rate)
                 delta_input = self.input_hidden.backward(delta_hidden, learning_rate)
 
+            # calculate the loss using the cross-entropy loss function
+            epsilon = 1e-10
+            error: float = -np.mean(batch_labels * np.log(output + epsilon))
+            loss_plot.append(error)
+
+            # calculate the accuracy
+            predicted_labels: NDArray = np.argmax(output, axis=1)
+            true_labels: NDArray = np.argmax(batch_labels, axis=1)
+            train_accuracy: float = np.mean(predicted_labels == true_labels) * 100
+            train_accuracy_plot.append(train_accuracy)
+
             print(
-                f"Epoch {epoch + 1} - Train accuracy: {accuracy * 100:.2f}% - Loss: {error:.4f}",
+                f"Epoch {epoch + 1} - Train accuracy: {train_accuracy:.2f}% - Loss: {error:.4f}",
                 end=" - ",
             )
-            print(f"Test accuracy: {self.accuracy(test_images, test_labels) * 100:.2f}%")
 
-            print(f"Learning rate: {learning_rate}")
+            # calculate the test accuracy
+            test_accuracy = self.accuracy(test_images, test_labels) * 100
+            test_accuracy_plot.append(test_accuracy)
+            print(f"Test accuracy: {test_accuracy:.2f}%")
+
+            # plot the loss and accuracy
+            if plot_stats:
+                plot(loss_plot, train_accuracy_plot, test_accuracy_plot)
+
             if epoch % lr_decay_epoch == 0 and epoch != 0:
                 learning_rate *= learning_rate_decay
 
@@ -289,6 +302,12 @@ def get_arguments():
         help="Batch size for training the neural network",
     )
     parser.add_argument(
+        "-p",
+        "--plot-stats",
+        action="store_true",
+        help="Plot the loss and accuracy of the neural network",
+    )
+    parser.add_argument(
         "-l",
         "--learning-rate",
         action=LearningRateAction,
@@ -329,6 +348,7 @@ def get_arguments():
     return (
         args.epochs,
         args.batch_size,
+        args.plot_stats,
         args.learning_rate,
         args.learning_rate_decay,
         args.lr_decay_epoch,
@@ -338,9 +358,16 @@ def get_arguments():
 
 
 def main():
-    epochs, batch_size, learning_rate, learning_rate_decay, lr_decay_epoch, custom_dataset, draw = (
-        get_arguments()
-    )
+    (
+        epochs,
+        batch_size,
+        plot_stats,
+        learning_rate,
+        learning_rate_decay,
+        lr_decay_epoch,
+        custom_dataset,
+        draw,
+    ) = get_arguments()
     nn = NeuralNetwork(784, 50, 10)
 
     if custom_dataset:
@@ -349,15 +376,16 @@ def main():
         train_images, train_labels, test_images, test_labels = DataLoader().load_mnist_data()
 
     nn.train(
-        learning_rate,
-        epochs,
-        batch_size,
-        train_images,
-        train_labels,
-        test_images,
-        test_labels,
-        learning_rate_decay,
-        lr_decay_epoch,
+        learning_rate=learning_rate,
+        epochs=epochs,
+        batch_size=batch_size,
+        train_images=train_images,
+        train_labels=train_labels,
+        test_images=test_images,
+        test_labels=test_labels,
+        plot_stats=plot_stats,
+        learning_rate_decay=learning_rate_decay,
+        lr_decay_epoch=lr_decay_epoch,
     )
 
     if draw and not custom_dataset:
