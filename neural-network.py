@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.typing import NDArray
 import matplotlib.pyplot as plt
 from utils import DataLoader, NonpositiveIntAction, LearningRateAction, DrawingApp
 import argparse
@@ -13,67 +14,65 @@ class Layer:
             activation (str, optional): The activation function to use. Defaults to "sigmoid".
         """
         # initialize the weights using he-initialization
-        self.weights: np.ndarray = np.random.randn(input_size, output_size) * np.sqrt(
-            2 / input_size
-        )
-        self.biases: np.ndarray = np.zeros((1, output_size))
+        self.weights: NDArray = np.random.randn(input_size, output_size) * np.sqrt(2 / input_size)
+        self.biases: NDArray = np.zeros((1, output_size))
         self.activation: str = activation
 
-    def __call__(self, input: np.ndarray) -> np.ndarray:
+    def __call__(self, input: NDArray) -> NDArray:
         """
         Overload the call operator to make the layer callable
         Args:
-            input (np.ndarray): The input to the layer
+            input (NDArray): The input to the layer
         Returns:
-            np.ndarray: The output of the layer
+            NDArray: The output of the layer
         """
         return self._forward(input)
 
-    def _forward(self, input: np.ndarray) -> np.ndarray:
+    def _forward(self, input: NDArray) -> NDArray:
         """
         Forward pass through the layer
         Args:
-            input (np.ndarray): The input to the layer
+            input (NDArray): The input to the layer
         Returns:
-            np.ndarray: The output of the layer
+            NDArray: The output of the layer
         """
-        self.input: np.ndarray = input
+        self.input: NDArray = input
 
-        pre_activation_output: np.ndarray = self.input @ self.weights + self.biases
+        pre_activation_output: NDArray = self.input @ self.weights + self.biases
 
         # Apply activation functions
         if self.activation == "sigmoid":
-            self.output: np.ndarray = self._sigmoid(pre_activation_output)
+            self.output: NDArray = self._sigmoid(pre_activation_output)
         elif self.activation == "relu":
-            self.output: np.ndarray = self._relu(pre_activation_output)
+            self.output: NDArray = self._relu(pre_activation_output)
         elif self.activation == "softmax":
-            self.output: np.ndarray = self._softmax(pre_activation_output)
+            self.output: NDArray = self._softmax(pre_activation_output)
 
         else:
             print(f"The activation function entered does not exist!\nUse either relu or softmax")
 
         return self.output
 
-    def backward(self, gradient: np.ndarray, learning_rate: float) -> np.ndarray:
+    def backward(self, gradient: NDArray, learning_rate: float) -> NDArray:
         """
         Backward pass through the layer
         Args:
-            gradient (np.ndarray): The gradient of the loss with respect to the output of the layer
+            gradient (NDArray): The gradient of the loss with respect to the output of the layer
             learning_rate (float): The learning rate to use for updating the weights and bias
         Returns:
-            np.ndarray: The gradient of the loss with respect to the input of the layer
+            NDArray: The gradient of the loss with respect to the input of the layer
         """
         # calculate the delta l
         if self.activation == "sigmoid":
-            delta: np.ndarray = gradient * self._dsigmoid(self.output)
+            delta: NDArray = gradient * self._dsigmoid(self.output)
         elif self.activation == "relu":
-            delta: np.ndarray = gradient * self._drelu(self.output)
+            delta: NDArray = gradient * self._drelu(self.output)
         elif self.activation == "softmax":
-            delta: np.ndarray = self._dsoftmax(self.output, gradient)
+            delta: NDArray = self._dsoftmax(self.output, gradient)
 
         # calculate the gradients with respect to the weights and bias
-        weights_gradient: np.ndarray = self.input.T @ delta
-        biases_gradient: np.ndarray = np.sum(delta, axis=0, keepdims=True)
+        weights_gradient: NDArray = self.input.T @ delta
+        biases_gradient: NDArray = np.sum(delta, axis=0, keepdims=True)
 
         # clip the gradients to prevent exploding gradients
         weights_gradient = np.clip(weights_gradient, -1.0, 1.0)
@@ -85,65 +84,65 @@ class Layer:
 
         return delta @ self.weights.T
 
-    def _sigmoid(self, x: np.ndarray) -> np.ndarray:
+    def _sigmoid(self, x: NDArray) -> NDArray:
         """
         The sigmoid activation function
         Args:
-            x (np.ndarray): The input to the activation function
+            x (NDArray): The input to the activation function
         Returns:
-            np.ndarray: The output of the activation function
+            NDArray: The output of the activation function
         """
         return 1 / (1 + np.exp(-x))
 
-    def _dsigmoid(self, x: np.ndarray) -> np.ndarray:
+    def _dsigmoid(self, x: NDArray) -> NDArray:
         """
         The derivative of the sigmoid activation function
         Args:
-            x (np.ndarray): The input to the activation function
+            x (NDArray): The input to the activation function
         Returns:
-            np.ndarray: The output of the derivative of the activation function
+            NDArray: The output of the derivative of the activation function
         """
         return self._sigmoid(x) * (1 - self._sigmoid(x))
 
-    def _relu(self, x: np.ndarray) -> np.ndarray:
+    def _relu(self, x: NDArray) -> NDArray:
         """
         The ReLU activation function
         Args:
-            x (np.ndarray): The input to the activation function
+            x (NDArray): The input to the activation function
         Returns:
-            np.ndarray: The output of the activation function
+            NDArray: The output of the activation function
         """
         return np.maximum(0, x)
 
-    def _drelu(self, x: np.ndarray) -> np.ndarray:
+    def _drelu(self, x: NDArray) -> NDArray:
         """
         The derivative of the ReLU activation function
         Args:
-            x (np.ndarray): The input to the activation function
+            x (NDArray): The input to the activation function
         Returns:
-            np.ndarray: The output of the derivative of the activation function
+            NDArray: The output of the derivative of the activation function
         """
         return x > 0
 
-    def _softmax(self, x: np.ndarray) -> np.ndarray:
+    def _softmax(self, x: NDArray) -> NDArray:
         """
         The softmax activation function
         Args:
-            x (np.ndarray): The input to the activation function
+            x (NDArray): The input to the activation function
         Returns:
-            np.ndarray: The output of the activation function
+            NDArray: The output of the activation function
         """
-        exponential_values: np.ndarray = np.exp(x - np.max(x, axis=-1, keepdims=True))
+        exponential_values: NDArray = np.exp(x - np.max(x, axis=-1, keepdims=True))
         return exponential_values / np.sum(exponential_values, axis=-1, keepdims=True)
 
-    def _dsoftmax(self, x: np.ndarray, gradient: np.ndarray) -> np.ndarray:
+    def _dsoftmax(self, x: NDArray, gradient: NDArray) -> NDArray:
         """
         The derivative of the softmax activation function
         Args:
-            x (np.ndarray): The input to the activation function
-            gradient (np.ndarray): The gradient of the loss with respect to the output of the layer
+            x (NDArray): The input to the activation function
+            gradient (NDArray): The gradient of the loss with respect to the output of the layer
         Returns:
-            np.ndarray: The output of the derivative of the activation function
+            NDArray: The output of the derivative of the activation function
         """
         for i, d_value in enumerate(gradient):
             if len(d_value.shape) == 1:
@@ -165,23 +164,23 @@ class NeuralNetwork:
         self.input_hidden = Layer(input_nodes, hidden_nodes, "relu")
         self.hidden_output = Layer(hidden_nodes, output_nodes, "softmax")
 
-    def __call__(self, input: np.ndarray) -> np.ndarray:
+    def __call__(self, input: NDArray) -> NDArray:
         """
         Overload the call operator to make the neural network callable
         Args:
-            input (np.ndarray): The input to the neural network
+            input (NDArray): The input to the neural network
         Returns:
-            np.ndarray: The output of the neural network
+            NDArray: The output of the neural network
         """
         return self._forward(input)
 
-    def _forward(self, input: np.ndarray) -> np.ndarray:
+    def _forward(self, input: NDArray) -> NDArray:
         """
         Forward pass through the neural network
         Args:
-            input (np.ndarray): The input to the neural network
+            input (NDArray): The input to the neural network
         Returns:
-            np.ndarray: The output of the neural network
+            NDArray: The output of the neural network
         """
         hidden = self.input_hidden(input)
         output = self.hidden_output(hidden)
@@ -193,10 +192,10 @@ class NeuralNetwork:
         learning_rate: float,
         epochs: int,
         batch_size: int,
-        train_images: np.ndarray,
-        train_labels: np.ndarray,
-        test_images: np.ndarray,
-        test_labels: np.ndarray,
+        train_images: NDArray,
+        train_labels: NDArray,
+        test_images: NDArray,
+        test_labels: NDArray,
         learning_rate_decay: float = 1,
         lr_decay_epoch: int = 1,
     ) -> None:
@@ -206,8 +205,8 @@ class NeuralNetwork:
             learning_rate (float): The learning rate to use for training
             epochs (int): The number of epochs to train the neural network
             batch_size (int): The batch size to use for training
-            images (np.ndarray): The images to train on
-            labels (np.ndarray): The labels of the images
+            images (NDArray): The images to train on
+            labels (NDArray): The labels of the images
             learning_rate_decay (float, optional): The learning rate decay factor. Defaults to 1.
             lr_decay_epoch (int, optional): The number of epochs before the learning rate decays. Defaults to 1.
         """
@@ -216,15 +215,15 @@ class NeuralNetwork:
                 batch_images = train_images[i : i + batch_size]
                 batch_labels = train_labels[i : i + batch_size]
 
-                output: np.ndarray = self._forward(batch_images)
+                output: NDArray = self._forward(batch_images)
 
                 # calculate the loss using the cross-entropy loss function
                 epsilon = 1e-10
                 error: float = -np.mean(batch_labels * np.log(output + epsilon))
 
                 # calculate the accuracy
-                predicted_labels: np.ndarray = np.argmax(output, axis=1)
-                true_labels: np.ndarray = np.argmax(batch_labels, axis=1)
+                predicted_labels: NDArray = np.argmax(output, axis=1)
+                true_labels: NDArray = np.argmax(batch_labels, axis=1)
                 accuracy: float = np.mean(predicted_labels == true_labels)
 
                 # calculate the gradient of the loss with respect to the output
@@ -244,30 +243,30 @@ class NeuralNetwork:
             if epoch % lr_decay_epoch == 0 and epoch != 0:
                 learning_rate *= learning_rate_decay
 
-    def accuracy(self, images: np.ndarray, labels: np.ndarray) -> float:
+    def accuracy(self, images: NDArray, labels: NDArray) -> float:
         """
         Calculate the accuracy of the neural network
         Args:
-            images (np.ndarray): The images to calculate the accuracy on
-            labels (np.ndarray): The labels of the images
+            images (NDArray): The images to calculate the accuracy on
+            labels (NDArray): The labels of the images
         Returns:
             float: The accuracy of the neural network
         """
-        output: np.ndarray = self._forward(images)
-        predicted_labels: np.ndarray = np.argmax(output, axis=1)
-        true_labels: np.ndarray = np.argmax(labels, axis=1)
+        output: NDArray = self._forward(images)
+        predicted_labels: NDArray = np.argmax(output, axis=1)
+        true_labels: NDArray = np.argmax(labels, axis=1)
         accuracy: float = np.mean(predicted_labels == true_labels)
         return accuracy
 
-    def predict(self, image: np.ndarray) -> int:
+    def predict(self, image: NDArray) -> int:
         """
         Predict the label of an image
         Args:
-            image (np.ndarray): The image to predict
+            image (NDArray): The image to predict
         Returns:
             int: The predicted label
         """
-        output: np.ndarray = self._forward(image)
+        output: NDArray = self._forward(image)
         return np.argmax(output)
 
 
