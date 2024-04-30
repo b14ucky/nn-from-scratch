@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import DataLoader, EpochAction, LearningRateAction, DrawingApp
+from utils import DataLoader, NonpositiveIntAction, LearningRateAction, DrawingApp
 import argparse
 
 
@@ -192,6 +192,7 @@ class NeuralNetwork:
         self,
         learning_rate: float,
         epochs: int,
+        batch_size: int,
         train_images: np.ndarray,
         train_labels: np.ndarray,
         test_images: np.ndarray,
@@ -204,29 +205,34 @@ class NeuralNetwork:
         Args:
             learning_rate (float): The learning rate to use for training
             epochs (int): The number of epochs to train the neural network
+            batch_size (int): The batch size to use for training
             images (np.ndarray): The images to train on
             labels (np.ndarray): The labels of the images
             learning_rate_decay (float, optional): The learning rate decay factor. Defaults to 1.
             lr_decay_epoch (int, optional): The number of epochs before the learning rate decays. Defaults to 1.
         """
         for epoch in range(epochs):
-            output: np.ndarray = self._forward(train_images)
+            for i in range(0, len(train_images), batch_size):
+                batch_images = train_images[i : i + batch_size]
+                batch_labels = train_labels[i : i + batch_size]
 
-            # calculate the loss using the cross-entropy loss function
-            epsilon = 1e-10
-            error: float = -np.mean(train_labels * np.log(output + epsilon))
+                output: np.ndarray = self._forward(batch_images)
 
-            # calculate the accuracy
-            predicted_labels: np.ndarray = np.argmax(output, axis=1)
-            true_labels: np.ndarray = np.argmax(train_labels, axis=1)
-            accuracy: float = np.mean(predicted_labels == true_labels)
+                # calculate the loss using the cross-entropy loss function
+                epsilon = 1e-10
+                error: float = -np.mean(batch_labels * np.log(output + epsilon))
 
-            # calculate the gradient of the loss with respect to the output
-            delta_output = (output - train_labels) / output.shape[0]
+                # calculate the accuracy
+                predicted_labels: np.ndarray = np.argmax(output, axis=1)
+                true_labels: np.ndarray = np.argmax(batch_labels, axis=1)
+                accuracy: float = np.mean(predicted_labels == true_labels)
 
-            # backpropagate the gradient
-            delta_hidden = self.hidden_output.backward(delta_output, learning_rate)
-            delta_input = self.input_hidden.backward(delta_hidden, learning_rate)
+                # calculate the gradient of the loss with respect to the output
+                delta_output = (output - batch_labels) / output.shape[0]
+
+                # backpropagate the gradient
+                delta_hidden = self.hidden_output.backward(delta_output, learning_rate)
+                delta_input = self.input_hidden.backward(delta_hidden, learning_rate)
 
             print(
                 f"Epoch {epoch + 1} - Train accuracy: {accuracy * 100:.2f}% - Loss: {error:.4f}",
@@ -270,10 +276,18 @@ def get_arguments():
     parser.add_argument(
         "-e",
         "--epochs",
-        action=EpochAction,
+        action=NonpositiveIntAction,
         type=int,
         default=3,
         help="Number of epochs to train the neural network",
+    )
+    parser.add_argument(
+        "-b",
+        "--batch-size",
+        action=NonpositiveIntAction,
+        type=int,
+        default=32,
+        help="Batch size for training the neural network",
     )
     parser.add_argument(
         "-l",
@@ -294,7 +308,7 @@ def get_arguments():
     parser.add_argument(
         "-le",
         "--lr-decay-epoch",
-        action=EpochAction,
+        action=NonpositiveIntAction,
         type=int,
         default=1,
         help="Epochs before the learning rate decays",
@@ -315,6 +329,7 @@ def get_arguments():
     args = parser.parse_args()
     return (
         args.epochs,
+        args.batch_size,
         args.learning_rate,
         args.learning_rate_decay,
         args.lr_decay_epoch,
@@ -324,17 +339,20 @@ def get_arguments():
 
 
 def main():
-    epochs, learning_rate, learning_rate_decay, lr_decay_epoch, custom_dataset, draw = (
+    epochs, batch_size, learning_rate, learning_rate_decay, lr_decay_epoch, custom_dataset, draw = (
         get_arguments()
     )
     nn = NeuralNetwork(784, 50, 10)
+
     if custom_dataset:
         train_images, train_labels, test_images, test_labels = DataLoader().load_custom_data()
     else:
         train_images, train_labels, test_images, test_labels = DataLoader().load_mnist_data()
+
     nn.train(
         learning_rate,
         epochs,
+        batch_size,
         train_images,
         train_labels,
         test_images,
@@ -342,6 +360,7 @@ def main():
         learning_rate_decay,
         lr_decay_epoch,
     )
+
     if draw and not custom_dataset:
         drawing_app = DrawingApp()
         print("Press 'R' to clear the window, 'ENTER' to continue and 'ESC' to exit")

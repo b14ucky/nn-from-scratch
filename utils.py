@@ -36,10 +36,10 @@ class DataLoader:
         return train_images, train_labels, test_images, test_labels
 
 
-class EpochAction(argparse.Action):
+class NonpositiveIntAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         if values < 1:
-            raise argparse.ArgumentError(self, "Epochs must be greater than 0")
+            raise argparse.ArgumentError(self, "Value should be greater than 0")
         setattr(namespace, self.dest, values)
 
 
