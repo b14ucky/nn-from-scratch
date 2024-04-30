@@ -18,6 +18,15 @@ class Layer:
         self.biases: NDArray = np.zeros((1, output_size))
         self.activation: str = activation
 
+        # adam optimizer parameters
+        self.m_weights: NDArray = np.zeros_like(self.weights)
+        self.v_weights: NDArray = np.zeros_like(self.weights)
+        self.m_biases: NDArray = np.zeros_like(self.biases)
+        self.v_biases: NDArray = np.zeros_like(self.biases)
+        self.beta1: float = 0.9
+        self.beta2: float = 0.999
+        self.epsilon: float = 1e-8
+
     def __call__(self, input: NDArray) -> NDArray:
         """
         Overload the call operator to make the layer callable
@@ -53,12 +62,13 @@ class Layer:
 
         return self.output
 
-    def backward(self, gradient: NDArray, learning_rate: float) -> NDArray:
+    def backward(self, gradient: NDArray, learning_rate: float, t: int) -> NDArray:
         """
         Backward pass through the layer
         Args:
             gradient (NDArray): The gradient of the loss with respect to the output of the layer
             learning_rate (float): The learning rate to use for updating the weights and bias
+            t (int): The current iteration for the Adam optimizer
         Returns:
             NDArray: The gradient of the loss with respect to the input of the layer
         """
@@ -81,6 +91,26 @@ class Layer:
         # update the weights and bias
         self.weights -= learning_rate * weights_gradient
         self.biases -= learning_rate * biases_gradient
+
+        # calculate the moving average of the gradients at time step t
+        self.m_weights = self.beta1 * self.m_weights + (1 - self.beta1) * weights_gradient
+        self.v_weights = self.beta2 * self.v_weights + (1 - self.beta2) * weights_gradient**2
+        self.m_biases = self.beta1 * self.m_biases + (1 - self.beta1) * biases_gradient
+        self.v_biases = self.beta2 * self.v_biases + (1 - self.beta2) * biases_gradient**2
+
+        # calculate the corrected moving averages
+        corrected_m_weights = self.m_weights / (1 - self.beta1**t)
+        corrected_v_weights = self.v_weights / (1 - self.beta2**t)
+        corrected_m_biases = self.m_biases / (1 - self.beta1**t)
+        corrected_v_biases = self.v_biases / (1 - self.beta2**t)
+
+        # update the weights and bias using the Adam optimizer
+        self.weights -= (
+            learning_rate * corrected_m_weights / (np.sqrt(corrected_v_weights) + self.epsilon)
+        )
+        self.biases -= (
+            learning_rate * corrected_m_biases / (np.sqrt(corrected_v_biases) + self.epsilon)
+        )
 
         return delta @ self.weights.T
 
@@ -197,8 +227,7 @@ class NeuralNetwork:
         test_images: NDArray,
         test_labels: NDArray,
         plot_stats: bool = False,
-        learning_rate_decay: float = 1,
-        lr_decay_epoch: int = 1,
+        learning_rate_decay: float = 0.001,
     ) -> None:
         """
         Train the neural network
@@ -209,11 +238,11 @@ class NeuralNetwork:
             images (NDArray): The images to train on
             labels (NDArray): The labels of the images
             learning_rate_decay (float, optional): The learning rate decay factor. Defaults to 1.
-            lr_decay_epoch (int, optional): The number of epochs before the learning rate decays. Defaults to 1.
         """
         loss_plot = []
         train_accuracy_plot = []
         test_accuracy_plot = []
+        t = 0
         for epoch in range(epochs):
             for i in range(0, len(train_images), batch_size):
                 batch_images = train_images[i : i + batch_size]
@@ -225,8 +254,13 @@ class NeuralNetwork:
                 delta_output = (output - batch_labels) / output.shape[0]
 
                 # backpropagate the gradient
-                delta_hidden = self.hidden_output.backward(delta_output, learning_rate)
-                delta_input = self.input_hidden.backward(delta_hidden, learning_rate)
+                t += 1
+                delta_hidden = self.hidden_output.backward(delta_output, learning_rate, t)
+                delta_input = self.input_hidden.backward(delta_hidden, learning_rate, t)
+
+            # decay the learning rate
+            learning_rate /= 1 + learning_rate_decay
+            print(learning_rate)
 
             # calculate the loss using the cross-entropy loss function
             epsilon = 1e-10
@@ -252,9 +286,6 @@ class NeuralNetwork:
             # plot the loss and accuracy
             if plot_stats:
                 plot(loss_plot, test_accuracy_plot, train_accuracy_plot)
-
-            if epoch % lr_decay_epoch == 0 and epoch != 0:
-                learning_rate *= learning_rate_decay
 
     def accuracy(self, images: NDArray, labels: NDArray) -> float:
         """
@@ -320,16 +351,8 @@ def get_arguments():
         "--learning-rate-decay",
         action=LearningRateAction,
         type=float,
-        default=1,
+        default=0.001,
         help="Learning rate decay for the neural network",
-    )
-    parser.add_argument(
-        "-le",
-        "--lr-decay-epoch",
-        action=NonpositiveIntAction,
-        type=int,
-        default=1,
-        help="Epochs before the learning rate decays",
     )
     parser.add_argument(
         "-c",
@@ -351,7 +374,6 @@ def get_arguments():
         args.plot_stats,
         args.learning_rate,
         args.learning_rate_decay,
-        args.lr_decay_epoch,
         args.custom_dataset,
         args.draw,
     )
@@ -364,7 +386,6 @@ def main():
         plot_stats,
         learning_rate,
         learning_rate_decay,
-        lr_decay_epoch,
         custom_dataset,
         draw,
     ) = get_arguments()
@@ -385,7 +406,6 @@ def main():
         test_labels=test_labels,
         plot_stats=plot_stats,
         learning_rate_decay=learning_rate_decay,
-        lr_decay_epoch=lr_decay_epoch,
     )
 
     if draw and not custom_dataset:
