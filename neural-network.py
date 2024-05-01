@@ -1,7 +1,14 @@
 import numpy as np
 from numpy.typing import NDArray
 import matplotlib.pyplot as plt
-from utils import DataLoader, NonpositiveIntAction, LearningRateAction, DrawingApp, plot
+from utils import (
+    DataLoader,
+    NonpositiveIntAction,
+    LearningRateAction,
+    DrawingApp,
+    ImageAugmentation,
+    plot,
+)
 import argparse
 
 
@@ -184,15 +191,16 @@ class Layer:
 
 
 class NeuralNetwork:
-    def __init__(self, input_nodes: int, hidden_nodes: int, output_nodes: int) -> None:
+    def __init__(self, input_nodes: int, hidden_nodes: list[int], output_nodes: int) -> None:
         """
         Args:
             input_nodes (int): The number of input nodes
-            hidden_nodes (int): The number of hidden nodes
+            hidden_nodes (list[int]): The number of hidden nodes
             output_nodes (int): The number of output nodes
         """
-        self.input_hidden = Layer(input_nodes, hidden_nodes, "relu")
-        self.hidden_output = Layer(hidden_nodes, output_nodes, "softmax")
+        self.l1 = Layer(input_nodes, hidden_nodes[0], "relu")
+        self.l2 = Layer(hidden_nodes[0], hidden_nodes[1], "relu")
+        self.l3 = Layer(hidden_nodes[1], output_nodes, "softmax")
 
     def __call__(self, input: NDArray) -> NDArray:
         """
@@ -212,8 +220,9 @@ class NeuralNetwork:
         Returns:
             NDArray: The output of the neural network
         """
-        hidden = self.input_hidden(input)
-        output = self.hidden_output(hidden)
+        output1 = self.l1(input)
+        output2 = self.l2(output1)
+        output = self.l3(output2)
 
         return output
 
@@ -248,6 +257,10 @@ class NeuralNetwork:
                 batch_images = train_images[i : i + batch_size]
                 batch_labels = train_labels[i : i + batch_size]
 
+                for i, image in enumerate(batch_images):
+                    image = ImageAugmentation(image)()
+                    batch_images[i] = image
+
                 output: NDArray = self._forward(batch_images)
 
                 # calculate the gradient of the loss with respect to the output
@@ -255,12 +268,12 @@ class NeuralNetwork:
 
                 # backpropagate the gradient
                 t += 1
-                delta_hidden = self.hidden_output.backward(delta_output, learning_rate, t)
-                delta_input = self.input_hidden.backward(delta_hidden, learning_rate, t)
+                delta_hidden2 = self.l3.backward(delta_output, learning_rate, t)
+                delta_hidden1 = self.l2.backward(delta_hidden2, learning_rate, t)
+                delta_input = self.l1.backward(delta_hidden1, learning_rate, t)
 
             # decay the learning rate
             learning_rate /= 1 + learning_rate_decay
-            print(learning_rate)
 
             # calculate the loss using the cross-entropy loss function
             epsilon = 1e-10
@@ -389,7 +402,7 @@ def main():
         custom_dataset,
         draw,
     ) = get_arguments()
-    nn = NeuralNetwork(784, 50, 10)
+    nn = NeuralNetwork(784, [512, 512], 10)
 
     if custom_dataset:
         train_images, train_labels, test_images, test_labels = DataLoader().load_custom_data()

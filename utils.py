@@ -4,6 +4,7 @@ import argparse
 import cv2
 import matplotlib.pyplot as plt
 from IPython import display
+from numpy.typing import NDArray
 
 
 class DataLoader:
@@ -17,7 +18,7 @@ class DataLoader:
         labels = np.eye(10)[labels]
 
         # split the data into training and test sets
-        split = int(0.8 * images.shape[0])
+        split = int(0.9 * images.shape[0])
         train_images, test_images = images[:split], images[split:]
         train_labels, test_labels = labels[:split], labels[split:]
 
@@ -72,12 +73,12 @@ class DrawingApp:
 
         elif event == cv2.EVENT_MOUSEMOVE:
             if self.drawing:
-                cv2.line(self.image, (self.x, self.y), (x, y), color=(255, 255, 255), thickness=40)
+                cv2.line(self.image, (self.x, self.y), (x, y), color=(255, 255, 255), thickness=35)
                 self.x, self.y = x, y
 
         elif event == cv2.EVENT_LBUTTONUP:
             self.drawing = False
-            cv2.line(self.image, (self.x, self.y), (x, y), color=(255, 255, 255), thickness=40)
+            cv2.line(self.image, (self.x, self.y), (x, y), color=(255, 255, 255), thickness=35)
 
     def get_image(self):
         cv2.namedWindow(self.window_name, cv2.WINDOW_AUTOSIZE)
@@ -124,3 +125,57 @@ def plot(loss, test_accuracy, train_accuracy):
 
     plt.show(block=False)
     plt.pause(0.1)
+
+
+class ImageAugmentation:
+    def __init__(self, image: NDArray):
+        self.image: NDArray = image.reshape(28, 28) * 255
+        self.h, self.w = self.image.shape
+
+    def __call__(self) -> NDArray:
+        random_zoom: float = np.random.uniform(1, 1.15)
+        self.image = self._zoom(random_zoom)
+        random_rotation: int = np.random.randint(-10, 10)
+        self.image = self._rotate(random_rotation)
+        random_shift_x: int = np.random.randint(-3, 3)
+        random_shift_y: int = np.random.randint(-3, 3)
+        self.image = self._shift(random_shift_x, random_shift_y)
+        random_noise: float = np.random.uniform(0, 20)
+        self.image = self._noise(random_noise)
+        return self.image.reshape(784) / 255
+
+    def _zoom(self, scale: float) -> NDArray:
+        h_new, w_new = int(self.h * scale), int(self.w * scale)
+        img_new: NDArray = cv2.resize(self.image, (w_new, h_new))
+
+        if h_new < self.h:
+            pad_top = (self.h - h_new) // 2
+            pad_bottom = self.h - h_new - pad_top
+            img_new = np.pad(img_new, ((pad_top, pad_bottom), (0, 0)), mode="constant")
+        elif h_new > self.h:
+            img_new = img_new[(h_new - self.h) // 2 : (h_new + self.h) // 2, :]
+
+        if w_new < self.w:
+            pad_left = (self.w - w_new) // 2
+            pad_right = self.w - w_new - pad_left
+            img_new = np.pad(img_new, ((0, 0), (pad_left, pad_right)), mode="constant")
+        elif w_new > self.w:
+            img_new = img_new[:, (w_new - self.w) // 2 : (w_new + self.w) // 2]
+
+        return img_new
+
+    def _rotate(self, angle: float) -> NDArray:
+        M: NDArray = cv2.getRotationMatrix2D(((self.w - 1) / 2, (self.h - 1) / 2), angle, 1)
+        img_new: NDArray = cv2.warpAffine(self.image, M, (self.w, self.h))
+        return img_new
+
+    def _shift(self, dx: int, dy: int) -> NDArray:
+        M: NDArray = np.float32([[1, 0, dx], [0, 1, dy]])
+        img_new: NDArray = cv2.warpAffine(self.image, M, (self.w, self.h))
+        return img_new
+
+    def _noise(self, sigma: float) -> NDArray:
+        noise: NDArray = np.random.normal(0, sigma, self.image.shape)
+        img_new: NDArray = self.image + noise
+        img_new = np.clip(img_new, 0, 255)
+        return img_new
